@@ -1,0 +1,18 @@
+[theme]
+base = "dark"
+
+# Main colors
+primaryColor = "#0A84FF"
+backgroundColor = "#0B0B0D"
+secondaryBackgroundColor = "#17171A"
+textColor = "#F5F5F7"
+
+# Subtle UI details
+borderColor = "#303036"
+showWidgetBorder = false
+baseRadius = "0.25rem"
+
+[theme.sidebar]
+backgroundColor = "#111113"
+secondaryBackgroundColor = "#17171A"
+showWidgetBorder = false
