@@ -2,7 +2,7 @@
 
 from src.vehicle import Vehicle
 
-file = ""
+file = "data/002.csv"
 
 class MatlabReaderNotImplementedError(BaseException):
     pass
