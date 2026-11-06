@@ -33,10 +33,7 @@ with st.sidebar:
     if btn_load_data:
         # the vehicle chooses the matching reader for the file format
         st.session_state["loaded_file"] = selected_file
-        if selected_file.suffix == ".csv":
-            st.session_state["vehicle"] = Vehicle.from_csv(selected_file)
-        else:
-            raise NotImplementedError(f"File format {selected_file.suffix} is not supported yet.")
+        st.session_state["vehicle"] = Vehicle.from_file(selected_file)
 
 
     if "vehicle" in st.session_state:
@@ -47,12 +44,13 @@ with st.sidebar:
 if "vehicle" in st.session_state:
     data = st.session_state["vehicle"].data
     signals = {
-        "Velocity [km/h]": data.v_x,
-        "Longitudinal acceleration [m/s²]": data.a_x,
-        "Lateral acceleration [m/s²]": data.a_y,
-        "Steering wheel angle [deg]": data.swa_signed,
-        "Curvature [1/m]": data.curv,
+        "Velocity in km/h": data.v_x,
+        "Longitudinal acceleration in m/s^2": data.a_x,
+        "Lateral acceleration in in m/s^2": data.a_y,
+        "Steering wheel angle in deg": data.swa_signed,
+        "Curvature in 1/m": data.curv,
     }
+
     selected_signals = st.multiselect("Signals over time", list(signals),
                                       default=list(signals)[:2])
     if selected_signals:
