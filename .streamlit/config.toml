@@ -16,3 +16,6 @@ baseRadius = "0.25rem"
 backgroundColor = "#111113"
 secondaryBackgroundColor = "#17171A"
 showWidgetBorder = false
+
+[browser]
+gatherUsageStats = false

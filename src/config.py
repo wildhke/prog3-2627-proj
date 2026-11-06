@@ -5,4 +5,4 @@ import os
 
 ROOT_DIRECTORY: Path = os.getcwd()
 DATA_DIRECTORY: Path = ROOT_DIRECTORY / Path("data")
-SUPPORTED_DATA_FORMATS: list[str] = [".csv"]
+SUPPORTED_DATA_FORMATS: list[str] = [".csv", ".mat"]
