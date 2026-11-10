@@ -1,0 +1,162 @@
+<!-- This dashboard was AI generated. Used Claude Opus 5.5 -->
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --text: #F5F5F7;
+    --muted: #9A9AA2;
+    --panel: #17171A;
+    --border: #303036;
+    --accent: #0A84FF;
+    --accel: #FF453A;
+    --marker: #FFB000;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 4px; background: transparent; color: var(--text);
+    font-family: "Source Sans Pro", system-ui, sans-serif;
+  }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; flex: 1 1 260px;
+  }
+  .wheel-panel { display: flex; align-items: center; gap: 20px; }
+  .wheel { width: 190px; height: 190px; flex: none; }
+  .label { color: var(--muted); font-size: 0.9rem; }
+  .value { font-size: 2.6rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .unit { font-size: 1rem; color: var(--muted); font-weight: 400; }
+  .metric + .metric { margin-top: 18px; }
+  .bar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin-top: 6px; }
+  .bar > div { height: 100%; width: 0; border-radius: 4px; }
+  .controls { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  button, select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer;
+  }
+  button { min-width: 96px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  #clock { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 120px; text-align: right; }
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="panel wheel-panel">
+    <svg class="wheel" viewBox="-100 -100 200 200" aria-label="Steering wheel">
+      <g id="wheel">
+        <circle r="84" fill="none" stroke="#3A3A40" stroke-width="16"/>
+        <path d="M -76 4 L -22 10 M 76 4 L 22 10 M 0 24 L 0 76" stroke="#3A3A40" stroke-width="14"
+              stroke-linecap="round" fill="none"/>
+        <circle r="26" fill="#26262B" stroke="#3A3A40" stroke-width="4"/>
+        <rect x="-5" y="-100" width="10" height="20" rx="3" fill="var(--marker)"/>
+      </g>
+    </svg>
+    <div>
+      <div class="label">Steering wheel angle</div>
+      <div class="value"><span id="steering">0</span><span class="unit">°</span></div>
+      <div class="label" id="direction">&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="metric">
+      <div class="label">Velocity</div>
+      <div class="value"><span id="speed">0</span> <span class="unit">km/h</span></div>
+      <div class="bar"><div id="speed-bar" style="background: var(--accent)"></div></div>
+    </div>
+    <div class="metric">
+      <div class="label">Combined acceleration</div>
+      <div class="value"><span id="accel">0.00</span> <span class="unit">g</span></div>
+      <div class="bar"><div id="accel-bar" style="background: var(--accel)"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="play">Play</button>
+  <select id="rate">
+    <option value="1">1x</option><option value="2">2x</option>
+    <option value="5">5x</option><option value="10">10x</option>
+  </select>
+  <input id="seek" type="range" min="0" step="0.1" value="0">
+  <span id="clock"></span>
+</div>
+
+<script>
+const data = __REPLAY_DATA__;
+const duration = data.time[data.time.length - 1];
+const $ = (id) => document.getElementById(id);
+
+let t = 0;            // current measurement time in s
+let playing = false;
+let lastFrame = null; // timestamp of the previous animation frame
+
+$("seek").max = duration;
+
+// Value of a signal at time t, linearly interpolated between the two neighbouring samples
+function valueAt(signal, time) {
+  let lo = 0, hi = data.time.length - 1;
+  while (hi - lo > 1) {                        // binary search
+    const mid = (lo + hi) >> 1;
+    if (data.time[mid] <= time) lo = mid; else hi = mid;
+  }
+  const t0 = data.time[lo], t1 = data.time[hi];
+  const w = t1 > t0 ? Math.min(Math.max((time - t0) / (t1 - t0), 0), 1) : 0;
+  return data[signal][lo] * (1 - w) + data[signal][hi] * w;
+}
+
+function render() {
+  const steering = valueAt("steering", t);
+  const speed = valueAt("speed", t);
+  const accel = valueAt("accel", t);
+
+  // positive angle = left = counter-clockwise; SVG rotates clockwise for positive values
+  $("wheel").setAttribute("transform", `rotate(${-steering})`);
+  $("steering").textContent = Math.abs(steering).toFixed(0);
+  $("direction").textContent = steering > 0.5 ? "left" : steering < -0.5 ? "right" : "straight";
+
+  $("speed").textContent = speed.toFixed(1);
+  $("speed-bar").style.width = `${Math.min(speed / data.max_speed, 1) * 100}%`;
+  $("accel").textContent = accel.toFixed(2);
+  $("accel-bar").style.width = `${Math.min(accel / data.max_accel, 1) * 100}%`;
+
+  $("seek").value = t;
+  $("clock").textContent = `${t.toFixed(1)} / ${duration.toFixed(1)} s`;
+}
+
+function setPlaying(value) {
+  playing = value;
+  $("play").textContent = playing ? "Pause" : "Play";
+  lastFrame = null;
+}
+
+// Animation loop: called by the browser before every repaint (usually 60 times per second)
+function tick(now) {
+  if (playing) {
+    if (lastFrame !== null) {
+      t += (now - lastFrame) / 1000 * Number($("rate").value);
+      if (t >= duration) { t = duration; setPlaying(false); }
+    }
+    lastFrame = now;
+    render();
+  }
+  requestAnimationFrame(tick);
+}
+
+$("play").addEventListener("click", () => {
+  if (!playing && t >= duration) t = 0;  // restart at the end
+  setPlaying(!playing);
+});
+$("seek").addEventListener("input", (e) => { t = Number(e.target.value); render(); });
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space") { e.preventDefault(); $("play").click(); }
+});
+
+render();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
