@@ -6,13 +6,34 @@ import numpy as np
 
 from abc import ABC, abstractmethod
 
+from .measurement import Measurement
+
+
 class DataReader(ABC):
     """This is a abstract data class for any classes reading data. This can be interpreted as minimal requirement
     for any other data reader classes."""
 
     @abstractmethod
-    def read(self, file):
-        pass
+    def read(self, file) -> Measurement:
+        """Every reader must return a Measurement, independent of the file format."""
+
+    @staticmethod
+    def to_measurement(signals) -> Measurement:
+        """Converts the raw signals (DataFrame or dict of Series, named as in the files) into a Measurement.
+        Shared by all readers, so the mapping of the raw names is implemented only once."""
+        # steering wheel angle (swa) holds the absolute angle, swa_sign == 1 means negative
+        steering_wheel_angle = (1 - 2 * signals["swa_sign"]) * signals["swa"]
+
+        return Measurement(
+            time=signals["time"],
+            speed=signals["v_x"],
+            accel_x=signals["a_x"],
+            accel_y=signals["a_y"],
+            steering_wheel_angle=steering_wheel_angle,
+            curvature=signals["curv"],
+            latitude=signals["lat"],
+            longitude=signals["lon"],
+        )
 
 class CsvDataReader(DataReader):
     """Reads a CSV file with one column per signal.
@@ -21,13 +42,9 @@ class CsvDataReader(DataReader):
 
     file_format = ".csv"
 
-    def read(self, file):
+    def read(self, file) -> Measurement:
         table = pd.read_csv(file)
-
-        # steering wheel angle (swa) holds the absolute angle, swa_sign == 1 means negative
-        table["swa_signed"] = ( 1 - 2 * table["swa_sign"] ) * table["swa"]
-
-        return table
+        return self.to_measurement(table)
 
 class MatDataReader(DataReader):
     """Reads a mat file.
@@ -37,9 +54,13 @@ class MatDataReader(DataReader):
     """
 
     def __init__(self):
-        self.signal_names = ["time","v_x","a_x","a_y","swa","swa_sign","curv","lat","lon"]
+        self._signal_names = ["time", "v_x", "a_x", "a_y", "swa", "swa_sign", "curv", "lat", "lon"]
 
-    def read(self, file) -> pd.DataFrame:
+    @property
+    def signal_names(self):
+        return tuple(self._signal_names)  # immutable copy
+
+    def read(self, file) -> Measurement:
         signals = {}
 
         with h5py.File(file, "r") as mat_file:
@@ -47,6 +68,4 @@ class MatDataReader(DataReader):
                 values = np.array(mat_file[name]).ravel()
                 signals[name] = pd.Series(values)
 
-        sign = 1 - 2 * signals.pop("swa_sign")
-        signals["swa_signed"] = signals["swa"] * sign
-        return pd.DataFrame(signals)
+        return self.to_measurement(signals)
