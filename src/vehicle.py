@@ -1,27 +1,26 @@
-"""A vehicle with its loaded measurements."""
+"""A vehicle with its loaded measurements.
+
+Single responsibility: the Vehicle computes physical values from its measurement.
+It does not know file formats (-> readers.py) and does not format text (-> report.py).
+"""
 from collections import namedtuple
-from pathlib import Path
 
 import numpy as np
 
+from .exceptions import InvalidMeasurementError
 from .measurement import Measurement
-from .readers import CsvDataReader, MatDataReader
+from .readers import load_measurement
 
 
 GRAVITY = 9.81
 
 # One time step of the measurement.
-Sample = namedtuple("Sample", ["time", "speed", "accel_x", "accel_y", "steering_wheel_angle"])
+Sample = namedtuple("Sample", ["time", "speed", "accel_x", "accel_y", "steering_wheel_angle",
+                               "latitude", "longitude"])
 
 
 class Vehicle:
     """A vehicle with its loaded measurement."""
-
-    # This is the central point (single point of truth) where all readers must be noted. The rest is done automatically.
-    readers = {
-        ".csv": CsvDataReader(),
-        ".mat": MatDataReader(),
-    }
 
     steering_ratio = 15.0
 
@@ -35,22 +34,14 @@ class Vehicle:
     @data.setter
     def data(self, value: Measurement):
         if value.n_samples < 2:
-            raise ValueError("Measurement needs at least two samples")
+            raise InvalidMeasurementError("A measurement needs at least two samples")
         self._data = value
 
     @classmethod
     def from_file(cls, file):
-        """This class shows the polymorphism approach:
-        1. Get the file type by using the suffix.
-        2. With the file type, we are extracting the specific instance of the data reader class from the dict.
-        3. The read-method of the reader is called.
-        4. An object/instance of the specific class is returned.
-        """
-
-        suffix = Path(file).suffix.lower()
-
-        reader = cls.readers[suffix]
-        return cls(reader.read(file))
+        """Alternative constructor: Vehicle.from_file("drive.csv").
+        Which reader is used is decided in readers.py, the Vehicle does not know any file format."""
+        return cls(load_measurement(file))
 
     @property
     def time(self):
@@ -119,28 +110,12 @@ class Vehicle:
         time, speed = self.time, self.speed
         accel_x, accel_y = self.accel_x_g, self.accel_y_g
         steering_wheel_angle = self.steering_wheel_angle
+        latitude, longitude = self.data.latitude, self.data.longitude
 
         for index in range(start, self.n_samples, step):
             yield Sample(time.iloc[index], speed.iloc[index], accel_x.iloc[index], accel_y.iloc[index],
-                         steering_wheel_angle.iloc[index])
+                         steering_wheel_angle.iloc[index], latitude.iloc[index], longitude.iloc[index])
 
     def __iter__(self):
         """Makes the vehicle iterable: for sample in vehicle: ..."""
         return self.samples()
-
-    @property
-    def status(self) -> str:
-        """Short status line, e.g. used as title of the summary table in the sidebar."""
-        return f"{self.n_samples} samples loaded"
-
-    @property
-    def summary(self) -> dict:
-        """Key paramrters of the data."""
-        return {
-            "Duration": f"{self.duration:.1f} s",
-            "Sample rate": f"{self.sample_rate:.0f} Hz",
-            "Max speed": f"{self.max_speed:.0f} km/h",
-            "Max acceleration": f"{self.max_accel_g:.2f} g",
-            "Max steering wheel angle": f"{self.max_steering_wheel_angle:.0f} deg",
-            "GPS fix": "yes" if self.data.has_gps_fix else "no",
-        }

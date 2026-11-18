@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from .exceptions import InvalidMeasurementError
+
 
 @dataclass(eq=False)
 class Measurement:
@@ -28,7 +30,7 @@ class Measurement:
         """Runs right after the generated __init__: all signals must have the same length."""
         lengths = {name: len(values) for name, values in vars(self).items()}
         if len(set(lengths.values())) != 1:
-            raise ValueError(f"All signals need the same number of samples, got {lengths}")
+            raise InvalidMeasurementError(f"All signals need the same number of samples, got {lengths}")
 
     def __repr__(self):
         # the generated repr would print every value of every signal
@@ -52,6 +54,12 @@ class Measurement:
     def has_gps_fix(self) -> bool:
         """True if the GPS delivered a position at least once (0 means no fix)."""
         return bool((self.latitude != 0).any())
+
+    @property
+    def gps_track(self) -> pd.DataFrame:
+        """Latitude and longitude of all samples with GPS fix (0 means no fix), e.g. for a map."""
+        has_fix = (self.latitude != 0) & (self.longitude != 0)
+        return pd.DataFrame({"latitude": self.latitude[has_fix], "longitude": self.longitude[has_fix]})
 
     def to_dataframe(self) -> pd.DataFrame:
         """All signals as one table, e.g. for printing or exporting."""
