@@ -87,6 +87,7 @@
 
 <script>
 const data = __REPLAY_DATA__;
+const channel = new BroadcastChannel(__CHANNEL__);  // publishes the position for the map
 const duration = data.time[data.time.length - 1];
 const $ = (id) => document.getElementById(id);
 
@@ -105,8 +106,22 @@ function valueAt(signal, time) {
   }
   const t0 = data.time[lo], t1 = data.time[hi];
   const w = t1 > t0 ? Math.min(Math.max((time - t0) / (t1 - t0), 0), 1) : 0;
-  return data[signal][lo] * (1 - w) + data[signal][hi] * w;
+  const a = data[signal][lo], b = data[signal][hi];
+  if (a === null || b === null) return null;   // no GPS fix
+  return a * (1 - w) + b * w;
 }
+
+// Sends the current position to the map (only when it changed)
+let lastPosition = "";
+function publishPosition() {
+  const position = { latitude: valueAt("latitude", t), longitude: valueAt("longitude", t) };
+  const key = `${position.latitude},${position.longitude}`;
+  if (key !== lastPosition) { channel.postMessage(position); lastPosition = key; }
+}
+// A map that loads later asks for the current position
+channel.onmessage = (e) => {
+  if (e.data === "request-position") { lastPosition = ""; publishPosition(); }
+};
 
 function render() {
   const steering = valueAt("steering", t);
@@ -122,6 +137,8 @@ function render() {
   $("speed-bar").style.width = `${Math.min(speed / data.max_speed, 1) * 100}%`;
   $("accel").textContent = accel.toFixed(2);
   $("accel-bar").style.width = `${Math.min(accel / data.max_accel, 1) * 100}%`;
+
+  publishPosition();
 
   $("seek").value = t;
   $("clock").textContent = `${t.toFixed(1)} / ${duration.toFixed(1)} s`;

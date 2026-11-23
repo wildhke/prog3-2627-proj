@@ -19,4 +19,3 @@ FOOTER_HTML = f"""
 </style>
 <div class="app-footer">{FOOTER_TEXT}</div>
 """
-

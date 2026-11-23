@@ -17,13 +17,16 @@ DATA_RATE = 5  # Hz, samples sent to the browser.
 def replay_data(vehicle, rate: int = DATA_RATE) -> dict:
     """Collects the signals for the dashboard with the sample generator of the vehicle."""
     step = max(1, round(vehicle.sample_rate / rate))
-    columns = {"time": [], "speed": [], "accel": [], "steering": []}
+    columns = {"time": [], "speed": [], "accel": [], "steering": [], "latitude": [], "longitude": []}
 
     for sample in vehicle.samples(step=step):
         columns["time"].append(round(float(sample.time), 2))
         columns["speed"].append(round(float(sample.speed), 1))
         columns["accel"].append(round(math.hypot(sample.accel_x, sample.accel_y), 3))
         columns["steering"].append(round(float(sample.steering_wheel_angle), 1))
+        has_fix = sample.latitude != 0 and sample.longitude != 0
+        columns["latitude"].append(round(float(sample.latitude), 7) if has_fix else None)   # None -> null in JSON
+        columns["longitude"].append(round(float(sample.longitude), 7) if has_fix else None)
 
     # scale limits of the bars.
     columns["max_speed"] = math.ceil(vehicle.max_speed / 20) * 20
@@ -32,11 +35,15 @@ def replay_data(vehicle, rate: int = DATA_RATE) -> dict:
     return columns
 
 
-def dashboard(vehicle, height: int = 400):
-    """Shows the animated dashboard for the given vehicle."""
+def dashboard(vehicle, channel: str, height: int = 400):
+    """Shows the animated dashboard for the given vehicle.
 
+    During the replay the current GPS position is broadcast on `channel`, so other parts of
+    the page (e.g. the trajectory map) can follow the replay without a round trip to Python.
+    """
     html = TEMPLATE.read_text(encoding="utf-8")
     html = html.replace("__REPLAY_DATA__", json.dumps(replay_data(vehicle)))
+    html = html.replace("__CHANNEL__", json.dumps(channel))
 
     # the HTML is our own template filled with numbers, no user input -> safe to embed with JavaScript
     st.iframe(html, height=height)
