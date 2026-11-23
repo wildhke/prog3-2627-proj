@@ -153,7 +153,6 @@ def render_naive_replay(vehicle: Vehicle) -> None:
                         f"frame {frame} · lag **{max(lag, 0):.2f} s**")
         time.sleep(1 / rate)
 
-
 st.set_page_config(page_title="Vehicle data visualizer", layout="wide")
 
 vehicle = render_sidebar()
